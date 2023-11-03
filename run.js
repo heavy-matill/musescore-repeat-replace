@@ -2,7 +2,7 @@ import fs from "fs"
 import decompress from "decompress"
 import { XMLParser, XMLBuilder, XMLValidator } from "fast-xml-parser";
 
-const name = "solo"
+const name = "duo"
 const msczFile = name + ".mscz"
 const path = "dist"
 const mscxFile = path + "/" + name + ".mscx"
@@ -30,21 +30,23 @@ const options = {
 const parser = new XMLParser(options);
 let jObj = parser.parse(content);
 
-//console.log(jObj.museScore.Score.Staff)
-let i = 0;
-while (i < jObj.museScore.Score.Staff.Measure.length) {
-    let rep = jObj.museScore.Score.Staff.Measure[i].measureRepeatCount ?? 0
-    if (rep == 1) {
-        while ((jObj.museScore.Score.Staff.Measure[i + rep]?.measureRepeatCount ?? 0) > rep) {
-            rep++
+console.log(Object.keys(jObj.museScore.Score.Staff))
+for (let k in jObj.museScore.Score.Staff) {
+    let i = 0;
+    while (i < jObj.museScore.Score.Staff[k].Measure.length) {
+        let rep = jObj.museScore.Score.Staff[k].Measure[i].measureRepeatCount ?? 0
+        if (rep == 1) {
+            while ((jObj.museScore.Score.Staff[k].Measure[i + rep]?.measureRepeatCount ?? 0) > rep) {
+                rep++
+            }
+            let j = i - rep
+            while (j < i) {
+                jObj.museScore.Score.Staff[k].Measure[j + rep] = jObj.museScore.Score.Staff[k].Measure[j]
+                j++
+            }
         }
-        let j = i - rep
-        while (j < i) {
-            jObj.museScore.Score.Staff.Measure[j + rep] = jObj.museScore.Score.Staff.Measure[j]
-            j++
-        }
+        i += Math.max(1, rep)
     }
-    i += Math.max(1, rep)
 }
 
 const builder = new XMLBuilder(options);

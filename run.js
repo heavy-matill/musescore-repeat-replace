@@ -2,7 +2,7 @@ import fs from "fs"
 import decompress from "decompress"
 import { XMLParser, XMLBuilder, XMLValidator } from "fast-xml-parser";
 
-const name = "test"
+const name = "solo"
 const msczFile = name + ".mscz"
 const path = "dist"
 const mscxFile = path + "/" + name + ".mscx"

@@ -2,64 +2,72 @@ import fs from "fs"
 import decompress from "decompress"
 import { XMLParser, XMLBuilder, XMLValidator } from "fast-xml-parser";
 
-const name = "duo"
-const msczFile = name + ".mscz"
-const path = "dist"
-const mscxFile = path + "/" + name + ".mscx"
-// rename to compare output
-const mscxOutFile = mscxFile + "2"
+// find all mscz files
+const msczFiles = fs.readdirSync("./").filter(f => f.endsWith(`.mscz`))
+for (const msczFile of msczFiles) {
+    // get file name without extension
+    const name = msczFile.slice(0, -5)
+    const path = "out/" + name
 
-// decompress mscz file
-const files = await decompress(msczFile, path)
+    // decompress mscz file
+    const unzippedFiles = await decompress(msczFile, path)
 
-var content = fs.readFileSync(mscxFile, "utf-8")
+    // iterate over all extracted mscx files
+    for (const mscxFile of unzippedFiles.filter(f => f.path.endsWith(`.mscx`))) {
 
-// replace true value because its being parsed and rebuild wrong
-const strOrigTrue = `="true"`
-const strReplTrue = `="tru"`
-content = content.replaceAll(strOrigTrue, strReplTrue)
+        var content = mscxFile.data.toString()
 
-const options = {
-    ignoreAttributes: false,
-    attributeNamePrefix: "@@",
-    format: true,
-    //preserveOrder: true,
-    parseAttributeValue: false,
-    allowBooleanAttributes: false
-};
-const parser = new XMLParser(options);
-let jObj = parser.parse(content);
+        // replace true value because its being parsed and rebuild wrong
+        const strOrigTrue = `="true"`
+        const strReplTrue = `="tru"`
+        content = content.replaceAll(strOrigTrue, strReplTrue)
 
-console.log(Object.keys(jObj.museScore.Score.Staff))
-for (let k in jObj.museScore.Score.Staff) {
-    let i = 0;
-    // run through all measures
-    while (i < jObj.museScore.Score.Staff[k].Measure.length) {
-        let rep = jObj.museScore.Score.Staff[k].Measure[i].measureRepeatCount ?? 0
-        // if a measure contains measureRepeatCount = 1
-        if (rep == 1) {
-            // find following measureRepeatCounts e.g. 1, 1-2 or 1-4
-            while ((jObj.museScore.Score.Staff[k].Measure[i + rep]?.measureRepeatCount ?? 0) > rep) {
-                rep++
-            }
-            let j = i - rep
-            // replace voice of the repeating measures by the reference (e.g. measure before, or 1-2 measures before...)
-            while (j < i) {
-                jObj.museScore.Score.Staff[k].Measure[j + rep].voice = jObj.museScore.Score.Staff[k].Measure[j].voice
-                j++
+        // XML options
+        const options = {
+            ignoreAttributes: false,
+            attributeNamePrefix: "@@",
+            format: true,
+            //preserveOrder: true,
+            parseAttributeValue: false,
+            allowBooleanAttributes: false
+        };
+        const parser = new XMLParser(options);
+        let jObj = parser.parse(content);
+
+        // array of same length as Staff
+        const staff_idx = Array(jObj.museScore.Score.Staff.length ?? 1)
+        // iterate over possibly all StaffsF
+        for (let k in staff_idx) {
+            let i = 0;
+            // run through all measures
+            while (i < jObj.museScore.Score.Staff[k].Measure.length) {
+                let rep = jObj.museScore.Score.Staff[k].Measure[i].measureRepeatCount ?? 0
+                // if a measure contains measureRepeatCount = 1
+                if (rep == 1) {
+                    // find following measureRepeatCounts e.g. 1, 1-2 or 1-4
+                    while ((jObj.museScore.Score.Staff[k].Measure[i + rep]?.measureRepeatCount ?? 0) > rep) {
+                        rep++
+                    }
+                    let j = i - rep
+                    // replace voice of the repeating measures by the reference (e.g. measure before, or 1-2 measures before...)
+                    while (j < i) {
+                        jObj.museScore.Score.Staff[k].Measure[j + rep].voice = jObj.museScore.Score.Staff[k].Measure[j].voice
+                        j++
+                    }
+                }
+                // skip over the current measure or all the forthfollwing repeated measures (e.g. 1-2, 1-4)
+                i += Math.max(1, rep)
             }
         }
-        // skip over the current measure or all the forthfollwing repeated measures (e.g. 1-2, 1-4)
-        i += Math.max(1, rep)
+
+        // rebuild xml
+        const builder = new XMLBuilder(options);
+        var updatedContent = builder.build(jObj);
+
+        // replace true value back
+        updatedContent = updatedContent.replaceAll(strReplTrue, strOrigTrue)
+
+        fs.writeFileSync(path + "/" + mscxFile.path, updatedContent)
     }
 }
-
-const builder = new XMLBuilder(options);
-var updatedContent = builder.build(jObj);
-
-// replace true value back
-updatedContent = updatedContent.replaceAll(strReplTrue, strOrigTrue)
-
-fs.writeFileSync(mscxOutFile, updatedContent)
-
 console.log("done")

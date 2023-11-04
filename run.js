@@ -34,30 +34,40 @@ for (const msczFile of msczFiles) {
         const parser = new XMLParser(options);
         let jObj = parser.parse(content);
 
-        // array of same length as Staff
-        const staff_idx = Array(jObj.museScore.Score.Staff.length ?? 1)
+        // Staff is array
+        const stIsArr = jObj.museScore.Score.Staff.length ?? 0
+        const len_idx = jObj.museScore.Score.Staff.length ?? 1
+        console.log(mscxFile.path)
         // iterate over possibly all StaffsF
-        for (let k in staff_idx) {
+        let k = 0
+        while (k < len_idx) {
+            const Staff = jObj.museScore.Score.Staff[k] ?? jObj.museScore.Score.Staff
             let i = 0;
             // run through all measures
-            while (i < jObj.museScore.Score.Staff[k].Measure.length) {
-                let rep = jObj.museScore.Score.Staff[k].Measure[i].measureRepeatCount ?? 0
+            while (i < Staff.Measure.length) {
+                let rep = Staff.Measure[i].measureRepeatCount ?? 0
                 // if a measure contains measureRepeatCount = 1
                 if (rep == 1) {
                     // find following measureRepeatCounts e.g. 1, 1-2 or 1-4
-                    while ((jObj.museScore.Score.Staff[k].Measure[i + rep]?.measureRepeatCount ?? 0) > rep) {
+                    while ((Staff.Measure[i + rep]?.measureRepeatCount ?? 0) > rep) {
                         rep++
                     }
                     let j = i - rep
                     // replace voice of the repeating measures by the reference (e.g. measure before, or 1-2 measures before...)
                     while (j < i) {
-                        jObj.museScore.Score.Staff[k].Measure[j + rep].voice = jObj.museScore.Score.Staff[k].Measure[j].voice
+                        if (stIsArr) {
+                            jObj.museScore.Score.Staff[k].Measure[j + rep].voice = jObj.museScore.Score.Staff[k].Measure[j].voice
+                        }
+                        else {
+                            jObj.museScore.Score.Staff.Measure[j + rep].voice = jObj.museScore.Score.Staff.Measure[j].voice
+                        }
                         j++
                     }
                 }
                 // skip over the current measure or all the forthfollwing repeated measures (e.g. 1-2, 1-4)
                 i += Math.max(1, rep)
             }
+            k++
         }
 
         // rebuild xml

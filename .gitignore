@@ -1,4 +1,9 @@
 /node_modules
-/out/*/*
-!/out/*/*.mscx
+out/*/*
+!out/*/*.mscx
+!out/*/*/
+out/*/*/*
+!out/*/*/*/
+out/*/*/*/*
+!out/*/*/*/*.mscx
 *.mscbackup/*

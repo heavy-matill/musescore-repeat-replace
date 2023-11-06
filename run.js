@@ -27,47 +27,57 @@ for (const msczFile of msczFiles) {
             ignoreAttributes: false,
             attributeNamePrefix: "@@",
             format: true,
-            //preserveOrder: true,
+            preserveOrder: true,
             parseAttributeValue: false,
             allowBooleanAttributes: false
         };
         const parser = new XMLParser(options);
         let jObj = parser.parse(content);
 
-        // Staff is array
-        const stIsArr = jObj.museScore.Score.Staff.length ?? 0
-        const len_idx = jObj.museScore.Score.Staff.length ?? 1
-        console.log(mscxFile.path)
-        // iterate over possibly all StaffsF
-        let k = 0
-        while (k < len_idx) {
-            const Staff = jObj.museScore.Score.Staff[k] ?? jObj.museScore.Score.Staff
-            let i = 0;
+        // step through object with numbers
+        const i_museScore = Object.values(jObj).findIndex(v => Object.keys(v).includes("museScore"))
+        const museScore = jObj[i_museScore].museScore
+        const i_Score = Object.values(museScore).findIndex(v => Object.keys(v).includes("Score"))
+        const Score = museScore[i_Score].Score
+        const i_Staffs = Object.keys(Score).filter(i => Object.keys(Score[i]).includes("Staff"))
+
+        // iterate over possibly all Staffs
+        for (const k of i_Staffs) {
+            const Staff = Score[k].Staff
             // run through all measures
-            while (i < Staff.Measure.length) {
-                let rep = Staff.Measure[i].measureRepeatCount ?? 0
+            const i_Measures = Object.keys(Staff).filter(i => Object.keys(Staff[i]).includes("Measure"))
+            let i = 0;
+            while (i < i_Measures.length) {
+                const Measure = Staff[i_Measures[i]].Measure
+                const i_Repeat = Object.values(Measure).findIndex(v => Object.keys(v).includes("measureRepeatCount"))
+                let rep = (i_Repeat >= 0) ? Measure[i_Repeat].measureRepeatCount : 0
                 // if a measure contains measureRepeatCount = 1
                 if (rep == 1) {
                     // find following measureRepeatCounts e.g. 1, 1-2 or 1-4
-                    while ((Staff.Measure[i + rep]?.measureRepeatCount ?? 0) > rep) {
-                        rep++
+                    while (1) {
+                        // check next Measure for continuing repeat
+                        const nextMeasure = Staff[i_Measures[i + rep]].Measure
+                        const i_nextRepeat = Object.values(nextMeasure).findIndex(v => Object.keys(v).includes("measureRepeatCount"))
+                        const nextRep = (i_nextRepeat >= 0) ? nextMeasure[i_nextRepeat].measureRepeatCount : 0
+                        if (nextRep > rep) {
+                            rep = nextRep
+                        } else {
+                            break
+                        }
                     }
                     let j = i - rep
                     // replace voice of the repeating measures by the reference (e.g. measure before, or 1-2 measures before...)
                     while (j < i) {
-                        if (stIsArr) {
-                            jObj.museScore.Score.Staff[k].Measure[j + rep].voice = jObj.museScore.Score.Staff[k].Measure[j].voice
-                        }
-                        else {
-                            jObj.museScore.Score.Staff.Measure[j + rep].voice = jObj.museScore.Score.Staff.Measure[j].voice
-                        }
+                        const i_targetVoice = Object.values(jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j + rep]].Measure).findIndex(v => Object.keys(v).includes("voice"))
+                        const i_sourceVoice = Object.values(jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j]].Measure).findIndex(v => Object.keys(v).includes("voice"))
+                        jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j + rep]].Measure[i_targetVoice].voice = jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j + rep]].Measure[i_sourceVoice].voice
                         j++
                     }
                 }
                 // skip over the current measure or all the forthfollwing repeated measures (e.g. 1-2, 1-4)
                 i += Math.max(1, rep)
+
             }
-            k++
         }
 
         // rebuild xml

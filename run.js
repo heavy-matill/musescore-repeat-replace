@@ -50,15 +50,15 @@ for (const msczFile of msczFiles) {
             while (i < i_Measures.length) {
                 const Measure = Staff[i_Measures[i]].Measure
                 const i_Repeat = Object.values(Measure).findIndex(v => Object.keys(v).includes("measureRepeatCount"))
-                let rep = (i_Repeat >= 0) ? Measure[i_Repeat].measureRepeatCount : 0
+                let rep = (i_Repeat >= 0) ? Measure[i_Repeat].measureRepeatCount[0]['#text'] : 0
                 // if a measure contains measureRepeatCount = 1
                 if (rep == 1) {
                     // find following measureRepeatCounts e.g. 1, 1-2 or 1-4
-                    while (1) {
+                    while (i + rep < i_Measures.length) {
                         // check next Measure for continuing repeat
                         const nextMeasure = Staff[i_Measures[i + rep]].Measure
                         const i_nextRepeat = Object.values(nextMeasure).findIndex(v => Object.keys(v).includes("measureRepeatCount"))
-                        const nextRep = (i_nextRepeat >= 0) ? nextMeasure[i_nextRepeat].measureRepeatCount : 0
+                        const nextRep = (i_nextRepeat >= 0) ? nextMeasure[i_nextRepeat].measureRepeatCount[0]['#text'] : 0
                         if (nextRep > rep) {
                             rep = nextRep
                         } else {
@@ -68,9 +68,14 @@ for (const msczFile of msczFiles) {
                     let j = i - rep
                     // replace voice of the repeating measures by the reference (e.g. measure before, or 1-2 measures before...)
                     while (j < i) {
-                        const i_targetVoice = Object.values(jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j + rep]].Measure).findIndex(v => Object.keys(v).includes("voice"))
-                        const i_sourceVoice = Object.values(jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j]].Measure).findIndex(v => Object.keys(v).includes("voice"))
-                        jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j + rep]].Measure[i_targetVoice].voice = jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j + rep]].Measure[i_sourceVoice].voice
+                        const targetMeasure = jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j + rep]].Measure
+                        const i_targetVoices = Object.keys(targetMeasure).filter(i => Object.keys(targetMeasure[i]).includes("voice"))
+                        const sourceMeasure = jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j]].Measure
+                        const i_sourceVoices = Object.keys(sourceMeasure).filter(i => Object.keys(sourceMeasure[i]).includes("voice"))
+                        // splice source voices in the positions where the target voices were
+                        jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j + rep]].Measure.splice(i_targetVoices[0], i_targetVoices.slice(-1)[0], ...i_sourceVoices.map(l => jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j]].Measure[l]))
+                        // remove obsolete measureRepeatCount
+                        jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j + rep]].Measure = jObj[i_museScore].museScore[i_Score].Score[k].Staff[i_Measures[j + rep]].Measure.filter(v => !Object.keys(v).includes("measureRepeatCount"))
                         j++
                     }
                 }
